@@ -9,26 +9,31 @@ os.system('dir/w')
 
 class block_internet:
     def __init__(self):
-        #기본 명령어 세팅
-        #interface 정보 백업
+        #interface 정보 백업용 경로 생성
         self.backup_path = 'c:/net_info/'
         if not os.path.exists(self.backup_path):
             os.mkdir(self.backup_path)
-        self.net_info_backup_cmd = f"netsh -c interface dump > {self.backup_path}net_info_backup.txt"
-        #interface 정보 확인
-        self.net_interface_list_cmd = "netsh interface ipv4 show interface"
+        # Todo self.net_interface_dict는 향후 파일형태로 저장/관리 필요
+        # 초기 interface정보 dict {interface번호: {ip: 1.1.1.1, mask: 255.255.255.0}, interface번호:{}...}
         self.net_interface_dict = {}
-        #1
-        #2
+        self.loopback_interface_num = 1  # loopback interface num(보통 1번임)
 
-        #3
-        #4
-        #5
-        #6
-        #7
-        #8 라우팅 테이블
+    def set_cmd(self):
+        # ------------------------------------------------------------------------------------
+        # 정보수집 및 복원용 명령어
+
+        #interface 정보 백업
+        self.net_info_backup_cmd = f"netsh -c interface dump > {self.backup_path}net_info_backup.txt"
+
+        # 라우팅 테이블 기반 loopback interface num 확인용
         self.route_table_status_cmd = "route print -4"
-        self.loopback_interface_num = 1 #loopback interface num
+        # interface 정보 확인
+        self.net_interface_list_cmd = "netsh interface ipv4 show interface"
+
+        #------------------------------------------------------------------------------------
+        # disable / enable 명령어
+
+        # 8 라우팅 테이블
         self.route_table_disable_cmd = [
             f"netsh interface ipv4 set interface {self.loopback_interface_num} metric=1",
             f"route add 0.0.0.0 mask 128.0.0.0 10.10.10.10 metric 3 if {self.loopback_interface_num} -p",
@@ -39,6 +44,7 @@ class block_internet:
             f"route delete 0.0.0.0 mask 128.0.0.0",
             f"route delete 128.0.0.0 mask 128.0.0.0"
         ]
+
     # network 설정정보 백업
     def net_info_backup(self):
         print(f"[net_info_backup]: {self.net_info_backup_cmd}")
