@@ -18,17 +18,18 @@ class block_internet:
         self.net_interface_dict = {}
         self.loopback_interface_num = 1  # loopback interface num(보통 1번임)
 
+        self.set_cmd()
+
     def set_cmd(self):
         # ------------------------------------------------------------------------------------
         # 정보수집 및 복원용 명령어
 
         #interface 정보 백업
         self.net_info_backup_cmd = f"netsh -c interface dump > {self.backup_path}net_info_backup.txt"
-
-        # 라우팅 테이블 기반 loopback interface num 확인용
-        self.route_table_status_cmd = "route print -4"
         # interface 정보 확인
         self.net_interface_list_cmd = "netsh interface ipv4 show interface"
+        # 라우팅 테이블 기반 loopback interface num 확인용
+        self.route_table_status_cmd = "route print -4"
 
         #------------------------------------------------------------------------------------
         # disable / enable 명령어
@@ -53,14 +54,19 @@ class block_internet:
         if status_value.returncode != 0:
             print(f"에러코드: {status_value.stderr}")
 
-    # loopback interface 번호 조회
-    def loopback_info(self, status_value):
+    # routing table 정보 기반 loopback num 확인
+    def route_table_status(self):
+        print("[route table status]")
+        status_value = self.run_cmd(self.route_table_status_cmd)
         try:
             self.loopback_interface_num = re.search(r'(\d)\.{2,}Software Loopback Interface',status_value.stdout).group(1)
         except:
-            # loopback interface 번호 보통 1번(추측)
             self.loopback_interface_num = 1
+        print(f"실행결과 코드: {status_value.returncode}")
+        if status_value.returncode != 0:
+            print(f"에러코드: {status_value.stderr}")       
 
+    # interface 정보 확인
     def net_interface_info(self):
         status_value = self.run_cmd(self.net_interface_list_cmd)
         print(f"실행결과 코드: {status_value.returncode}")
@@ -70,38 +76,58 @@ class block_internet:
             int_wifi = re.compile(r'(\d+)[\s\d]+[\w]+[\s]+([wifWFI-]+)')
             int_eth = re.compile(r'(\d+)[\s\d]+[\w]+[\s]+(이더넷|Ethernet[\d\w\s]*)')
             for line in status_value.stdout.splitlines():
-                w = int_wifi.search(line)
-                e = int_eth.search(line)
-                if w:
-                    self.net_interface_dict[w.group(1)] = {'name': w.group(2)}
-                if e:
-                    self.net_interface_dict[e.group(1)] = {'name': e.group(2)}
+                wifi = int_wifi.search(line)
+                eth = int_eth.search(line)
+                if wifi:
+                    self.net_interface_dict[wifi.group(1)] = {'name': wifi.group(2)}
+                if eth:
+                    self.net_interface_dict[eth.group(1)] = {'name': eth.group(2)}
         except:
             print('error')
 
-    def ip_info(self):
         print("[ip_info]")
-        for idx, v in self.net_interface_dict.items():
-            status_value = self.run_cmd(f"netsh interface ipv4 show config name={idx}")
-            # print(status_value.stdout)
-            print("^"*50)
-            for s in status_value.stdout.splitlines():
-                tmp = list(set(s.split(' ')))
-                if len(tmp) <= 1: continue
-                del tmp[0]
-                print(tmp)
+        try:
+            dhcp_flag = re.compile(r'DHCP enabled:[\s]+([\w]+) ')
+            ip_addr = re.compile(r'IP Address:[\s]+(([\d]{1,3}\.){3}([\d]+))')
+            mask = re.compile(r'Subnet Prefix:[\s]+[\d\.\/]+ \(mask (([\d]{1,3}\.){3}([\d]+))')
+            gw_addr = re.compile(r'Default Gateway:[\s]+(([\d]{1,3}\.){3}([\d]+))')
+            dns_addr = re.compile(r'Statically Configured DNS Servers:[\s]+(([\d]{1,3}\.){3}([\d]+))\n[\s]*(([\d]{1,3}\.){3}([\d]+))* ')
 
-            print("^" * 50)
+            for idx, name in self.net_interface_dict.items():
+                status_value = self.run_cmd(f"netsh interface ipv4 show config name={idx}")
+                print("#"*50)
+                tmp_dict = name
 
-    #8 라우팅 테이블 관련
-    def route_table_status(self):
-        print("[route table status]")
-        status_value = self.run_cmd(self.route_table_status_cmd)
-        self.loopback_info(status_value)
-        print(f"실행결과 코드: {status_value.returncode}")
-        if status_value.returncode != 0:
-            print(f"에러코드: {status_value.stderr}")
+                # result = dhch_flag.search(status_value.stdout)
+                # if result:
+                #     tmp_dict['dhch'] = result.group(1)
+                if dhcp_flag.search(status_value.stdout):
+                    tmp_dict['dhcp'] = dhcp_flag.search(status_value.stdout).group(1)
+                if ip_addr.search(status_value.stdout):
+                    tmp_dict['ip_addr'] = ip_addr.search(status_value.stdout).group(1)
 
+                print(tmp_dict)
+                # for s in status_value.stdout.splitlines():
+                #     tmp = list((s.split(' ')))
+                #     if len(tmp) <= 1: continue
+                #     tmp = [i.replace('"','') for i in tmp if i not in ['']]
+                #     print(s)
+                #     tmp_dict[tmp[0]] = tmp[-1]
+
+                print("#" * 50)
+        except:
+            print("[ip_info] error")
+    
+    #netsh 명령어 실행 함수
+    def run_cmd(self, cmd_str, shell_flag=False):
+        result = subprocess.run(cmd_str.split(' '),
+                       capture_output=True, shell=shell_flag, encoding='utf8')
+        return result
+
+    
+
+
+    # 8 라우팅 테이블 관련
     def route_table_disable(self):
         print("[route table disable]")
         for d_cmd in self.route_table_disable_cmd:
@@ -118,28 +144,16 @@ class block_internet:
             if enable_value.returncode != 0:
                 print(f"에러코드: {enable_value.stderr}")
 
-    def run_cmd(self, cmd_str, shell_flag=False):
-        result = subprocess.run(cmd_str.split(' '),
-                       capture_output=True, shell=shell_flag, encoding='utf8')
-        return result
-
-
-
-    #enable
-
-    #disable
-
-    #staus check
+    
 
 if __name__ == "__main__":
     print("*"*80)
     print("Start Network enable or disable!!")
 
     pc1 = block_internet()
+    
     pc1.net_info_backup()
     pc1.net_interface_info()
-    pc1.ip_info()
-
     pc1.route_table_status()
 
     while(True):
