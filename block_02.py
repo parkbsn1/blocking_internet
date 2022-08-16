@@ -34,6 +34,18 @@ class block_internet:
 
     def set_cmd(self):
         # disable / enable 명령어
+
+        # 1. inteface 비활성화
+        self.adapter_disable_cmd = []
+        self.adapter_enable_cmd = []
+        for name, info in self.net_interface_dict.items():
+            #disable_cmd
+            tmp_cmd = f'netsh interface set interface {name} disable'
+            self.adapter_disable_cmd.append(tmp_cmd)
+            # enable_cmd
+            tmp_cmd = f'netsh interface set interface {name} enable'
+            self.adapter_enable_cmd.append(tmp_cmd)
+
         # 2. dns 변경
         self.dns_disable_cmd = []
         self.dns_enable_cmd = []
@@ -114,7 +126,7 @@ class block_internet:
 
     # interface 정보 확인
     def net_interface_info(self):
-        print(f"[net_interface_info]: {self.net_interface_list_cmd}")
+        print(f"[net_interface_info]")
         status_value = self.run_cmd(self.net_interface_list_cmd)
 
         try:
@@ -170,6 +182,17 @@ class block_internet:
         if result.returncode != 0:
             print(f"에러코드: {result.stderr}")
         return result
+
+    #1. 어댑터 비활성화
+    def adapter_disable(self):
+        print("[adapter_disable]")
+        for cmd in self.adapter_disable_cmd:
+            disable_value = self.run_cmd(cmd)
+
+    def adapter_enable(self):
+        print("[adapter_enable]")
+        for cmd in self.adapter_enable_cmd:
+            disable_value = self.run_cmd(cmd)
 
     #2. dns 변경
     def dns_disable(self):
@@ -231,10 +254,12 @@ if __name__ == "__main__":
             pc1.route_table_disable()
             pc1.ip_addr_disable()
             pc1.dns_disable()
+            pc1.adapter_disable()
         elif num == 2:
             pc1.route_table_enable()
             pc1.ip_addr_enable()
             pc1.dns_enable()
+            pc1.adapter_enable()
             pc1.net_info_backup()
         elif num == 3:
             print("종료")
