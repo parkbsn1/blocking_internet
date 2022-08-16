@@ -26,20 +26,23 @@ class block_internet:
 
 
         # 정보수집 및 복원용 명령어
-        # interface 정보 덤프
-        self.net_info_dump_cmd = f"netsh -c interface dump > {self.backup_path}net_info_backup.txt"
-        # interface 정보 원복
-        self.net_info_backup_cmd = f"netsh -f {self.backup_path}net_info_backup.txt"
         # interface 정보 확인
         self.net_interface_list_cmd = "netsh interface ipv4 show interface"
         # 라우팅 테이블 기반 loopback interface num 확인용
         self.route_table_status_cmd = "route print -4"
+        # PC hostname 확인
+        self.pc_hostname = (os.popen("hostname").read()).replace('\n','')
 
         self.ip_num = 1
 
     def set_cmd(self):
-        # disable / enable 명령어
+        # interface 정보 덤프
+        self.net_info_dump_cmd = f"netsh -c interface dump > {self.backup_path}{self.pc_hostname}_net_info_backup.txt"
+        # interface 정보 원복
+        self.net_info_backup_cmd = f"netsh -f {self.backup_path}{self.pc_hostname}_net_info_backup.txt"
 
+
+        # disable / enable 명령어
         # 1. inteface 비활성화
         self.adapter_disable_cmd = []
         self.adapter_enable_cmd = []
@@ -116,23 +119,47 @@ class block_internet:
         ]
     def save_def_net_info(self):
         # save data
-        with open(f'{self.backup_path}def_net_info.txt', 'wb') as fw:
-            pickle.dump(self.net_interface_dict, fw)
-
-        # load data
-        # with open('user.pickle', 'rb') as fr:
-        #     user_loaded = pickle.load(fr)
-
+        file_path = f'{self.backup_path}{self.pc_hostname}_def_net_info'
+        if os.path.isfile(file_path):
+            #파일이 존재하는 경우 불러오기
+            with open(file_path, 'rb') as fr:
+                self.net_interface_dict = pickle.load(fr)
+            print(f"기존 파일 불러오기:{file_path}")
+        else:
+            #파일이 없는 경우 신규 생성
+            with open(file_path, 'wb') as fw:
+                pickle.dump(self.net_interface_dict, fw)
+            print(f"신규 파일 생성:{file_path}")
+        for k,v in self.net_interface_dict.items():
+            print(f"{k} | {v}")
 
     # network 설정정보 덤프
     def net_info_dump(self):
         print(f"[net_info_dump]")
-        status_value = self.run_cmd(self.net_info_dump_cmd, True)
+        if not(os.path.isfile(f'{self.backup_path}{self.pc_hostname}_net_info_backup.txt')):
+            status_value = self.run_cmd(self.net_info_dump_cmd, True)
+            print("신규 backup파일 생성")
+        else:
+            print("기존 backup파일 존재")
+
+    def remove_backup_files(self):
+        print(f"[remove backup files]")
+        if os.path.isfile(f'{self.backup_path}{self.pc_hostname}_net_info_backup.txt'):
+            os.remove(f'{self.backup_path}{self.pc_hostname}_net_info_backup.txt')
+            print(f'{self.pc_hostname}net_info_backup.txt 삭제')
+        if os.path.isfile(f'{self.backup_path}{self.pc_hostname}_def_net_info'):
+            os.remove(f'{self.backup_path}{self.pc_hostname}_def_net_info')
+            print(f'{self.backup_path}{self.pc_hostname}_def_net_info 삭제')
+
 
     # network 설정정보 원복
     def net_info_backup(self):
         print(f"[net_info_backup]")
-        status_value = self.run_cmd(self.net_info_backup_cmd, True)
+        if os.path.isfile(f'{self.backup_path}{self.pc_hostname}_net_info_backup.txt'):
+            status_value = self.run_cmd(self.net_info_backup_cmd, True)
+        else:
+            print('기본 백업파일이 존재하지 않습니다.')
+
 
     # routing table 정보 기반 loopback num 확인
     def route_table_status(self):
@@ -195,12 +222,16 @@ class block_internet:
     
     #netsh 명령어 실행 함수
     def run_cmd(self, cmd_str, shell_flag=False):
-        result = subprocess.run(cmd_str.split(' '),
-                       capture_output=True, shell=shell_flag, encoding='utf8')
-        print(f"실행결과 코드: {result.returncode} | 명령어: {cmd_str}")
-        if result.returncode != 0:
-            print(f"에러코드: {result.stderr}")
-        return result
+        try:
+            result = subprocess.run(cmd_str.split(' '),
+                           capture_output=True, shell=shell_flag, encoding='utf8')
+            print(f"실행결과 코드: {result.returncode} | 명령어: {cmd_str}")
+            if result.returncode != 0:
+                print(f"에러코드: {result.stderr}")
+            return result
+        except:
+            print(f'coult not run cmd({cmd_str})')
+            return -1
 
     #1. 어댑터 비활성화
     def adapter_disable(self):
@@ -249,11 +280,17 @@ class block_internet:
     #6. wlan 서비스
     def wlan_service_disable(self):
         print("[wlan_service_disable]")
-        win32serviceutil.StopService('WlanSvc')
+        try:
+            win32serviceutil.StopService('WlanSvc')
+        except:
+            print("could not disable WlanSvc")
 
     def wlan_service_enable(self):
         print("[wlan_service_enable]")
-        win32serviceutil.StartService('WlanSvc')
+        try:
+            win32serviceutil.StartService('WlanSvc')
+        except:
+            print("could not enable WlanSvc")
 
     #8. 라우팅 테이블 관련
     def route_table_disable(self):
@@ -272,19 +309,23 @@ if __name__ == "__main__":
     print("Start Network enable or disable!!")
 
     pc1 = block_internet()
-    
-    pc1.net_info_dump()
+
     pc1.net_interface_info()
     pc1.route_table_status()
 
     #Todo self.net_interface_dict 파일 저장 함수 호출
-    pc1.save_def_net_info()
+    # pc1.save_def_net_info()
 
     #기본 정보를 바탕으로 명령어 세팅
     pc1.set_cmd()
+    # pc1.net_info_dump()
+    print('-'*60)
 
     while(True):
         try:
+            # Todo self.net_interface_dict 파일 저장 함수 호출
+            pc1.save_def_net_info()
+            pc1.net_info_dump()
             print("1. 차단시행 | 2. 차단해지 | 3. 종료")
             num = int(input("번호입력: "))
         except Exception as e:
@@ -304,10 +345,12 @@ if __name__ == "__main__":
             pc1.firewall_enable()
             pc1.wlan_service_enable()
             pc1.net_info_backup()
+            pc1.remove_backup_files()
         elif num == 3:
             print("종료")
             break
         else:
             print('다시 입력하세요')
+        print('-' * 60)
 
     print("*" * 80)
