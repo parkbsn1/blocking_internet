@@ -331,21 +331,23 @@ if __name__ == "__main__":
         except Exception as e:
             print("메뉴 번호를 입력하세요")
         if num == 1:
+            pc1.ip_addr_disable() #차단순서(1)
+            pc1.dns_disable() #차단순서(2)
+            pc1.adapter_disable() #차단순서(3)
+            pc1.wlan_service_disable()  # 차단순서(4)
             pc1.route_table_disable()
-            pc1.ip_addr_disable()
-            pc1.dns_disable()
-            pc1.adapter_disable()
             pc1.firewall_disable()
-            pc1.wlan_service_disable()
+
         elif num == 2:
             pc1.route_table_enable()
-            pc1.ip_addr_enable()
-            pc1.dns_enable()
-            pc1.adapter_enable()
             pc1.firewall_enable()
-            pc1.wlan_service_enable()
-            pc1.net_info_backup()
-            pc1.remove_backup_files()
+            pc1.wlan_service_enable() #원복순서(4)
+            pc1.adapter_enable()  #원복순서(3)
+            pc1.dns_enable() #원복순서(2)
+            pc1.ip_addr_enable() #원복순서(1)
+
+            pc1.net_info_backup() #백업파일기준 원복
+            pc1.remove_backup_files() #백업파일 삭제
         elif num == 3:
             print("종료")
             break
