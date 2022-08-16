@@ -66,6 +66,16 @@ class block_internet:
                 tmp_cmd = f'netsh -c int ip set dns name={name} source=dhcp'
                 self.dns_enable_cmd.append(tmp_cmd)
 
+        # 4. 방화벽 설정
+        self.firewall_disable_cmd = [
+            'netsh advfirewall firewall add rule name="Microsoft firewall IN" dir=in action=block enable=yes profile=any protocol=tcp remoteip=any remoteport=any',
+            'netsh advfirewall firewall add rule name="Microsoft firewall OUT" dir=out action=block enable=yes profile=any protocol=tcp remoteip=any remoteport=any'
+        ]
+        self.firewall_enable_cmd = [
+            'netsh advfirewall firewall delete rule name="Microsoft firewall IN"',
+            'netsh advfirewall firewall delete rule name="Microsoft firewall OUT"'
+        ]
+
         # 5. IP 변경
         self.ip_addr_disable_cmd = []
         self.ip_addr_enable_cmd = []
@@ -205,6 +215,17 @@ class block_internet:
         for cmd in self.dns_enable_cmd:
             enable_value = self.run_cmd(cmd)
 
+    #4. 방화벽 설정
+    def firewall_disable(self):
+        print("[firewall_disable]")
+        for cmd in self.firewall_disable_cmd:
+            disable_value = self.run_cmd(cmd)
+
+    def firewall_enable(self):
+        print("[firewall_enable]")
+        for cmd in self.firewall_enable_cmd:
+            disable_value = self.run_cmd(cmd)
+
     #5. IP변경
     def ip_addr_disable(self):
         print("[ip_addr_disable]")
@@ -255,11 +276,13 @@ if __name__ == "__main__":
             pc1.ip_addr_disable()
             pc1.dns_disable()
             pc1.adapter_disable()
+            pc1.firewall_disable()
         elif num == 2:
             pc1.route_table_enable()
             pc1.ip_addr_enable()
             pc1.dns_enable()
             pc1.adapter_enable()
+            pc1.firewall_enable()
             pc1.net_info_backup()
         elif num == 3:
             print("종료")
