@@ -3,6 +3,11 @@ import os
 import subprocess
 import re
 import pickle
+# try:
+#     import winxpgui as win32gui
+# except ImportError:
+#     import win32gui
+import win32serviceutil
 
 #console창 깨짐 방지
 os.system('chcp 65001')
@@ -93,6 +98,10 @@ class block_internet:
             else: #기존IP설정이 자동일 경우
                 tmp_cmd = f"netsh interface ipv4 set address name={name} source=dhcp"
             self.ip_addr_enable_cmd.append(tmp_cmd)
+
+        # 6. wlan 서비스: win32serviceutil 사용으로 불필요
+        # self.wlan_service_disable_cmd = 'sc stop WlanSvc'
+        # self.wlan_service_enable_cmd = 'sc start WlanSvc'
 
         # 8. 라우팅 테이블
         self.route_table_disable_cmd = [
@@ -237,6 +246,15 @@ class block_internet:
         for cmd in self.ip_addr_enable_cmd:
             enable_value = self.run_cmd(cmd)
 
+    #6. wlan 서비스
+    def wlan_service_disable(self):
+        print("[wlan_service_disable]")
+        win32serviceutil.StopService('WlanSvc')
+
+    def wlan_service_enable(self):
+        print("[wlan_service_enable]")
+        win32serviceutil.StartService('WlanSvc')
+
     #8. 라우팅 테이블 관련
     def route_table_disable(self):
         print("[route table disable]")
@@ -277,12 +295,14 @@ if __name__ == "__main__":
             pc1.dns_disable()
             pc1.adapter_disable()
             pc1.firewall_disable()
+            pc1.wlan_service_disable()
         elif num == 2:
             pc1.route_table_enable()
             pc1.ip_addr_enable()
             pc1.dns_enable()
             pc1.adapter_enable()
             pc1.firewall_enable()
+            pc1.wlan_service_enable()
             pc1.net_info_backup()
         elif num == 3:
             print("종료")
