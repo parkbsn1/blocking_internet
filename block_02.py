@@ -314,18 +314,18 @@ if __name__ == "__main__":
     pc1.route_table_status()
 
     #Todo self.net_interface_dict 파일 저장 함수 호출
-    # pc1.save_def_net_info()
+    pc1.save_def_net_info()
 
     #기본 정보를 바탕으로 명령어 세팅
     pc1.set_cmd()
-    # pc1.net_info_dump()
+    pc1.net_info_dump()
     print('-'*60)
 
     while(True):
         try:
             # Todo self.net_interface_dict 파일 저장 함수 호출
-            pc1.save_def_net_info()
-            pc1.net_info_dump()
+            # pc1.save_def_net_info()
+            # pc1.net_info_dump()
             print("1. 차단시행 | 2. 차단해지 | 3. 종료")
             num = int(input("번호입력: "))
         except Exception as e:
